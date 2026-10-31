@@ -1,4 +1,4 @@
-# TikTok LIVE Chat Bridge for Horizon
+# TikTok LIVE Chat and Gift Bridge for Horizon
 
 This small Windows app sends TikTok LIVE comments to the in-game chat in
 [Horizon](https://github.com/horizon-rust/horizon). Horizon is a Rust
