@@ -13,6 +13,7 @@ Minecraft Java mod or a Horizon WASM mod.
 - Python 3.10 or newer
 - Horizon installed with Horizon Launcher
 - A public TikTok LIVE stream
+- If you broadcast from a PC, the official [TikTok LIVE Studio](https://www.tiktok.com/studio/download) desktop app (the bridge itself only requires an active public LIVE stream; Studio is not needed when you go LIVE from another device or supported setup)
 
 ## Setup
 
@@ -27,7 +28,9 @@ Minecraft Java mod or a Horizon WASM mod.
    and restart Horizon.
 4. Open your world to LAN. Allow commands/cheats so Horizon can show comments
    as system messages.
-5. Double-click `run_bridge.bat`. When asked, enter the TikTok username of the
+5. If you stream from a PC, open TikTok LIVE Studio and start your LIVE. Wait
+   until the broadcast is active.
+6. Double-click `run_bridge.bat`. When asked, enter the TikTok username of the
    account streaming LIVE. You can enter it with or without `@`.
 
 The bridge finds `horizon-ctl.exe` in the Horizon version selected in the
