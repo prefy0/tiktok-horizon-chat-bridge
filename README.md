@@ -1,13 +1,11 @@
 # TikTok LIVE Chat and Gift Bridge for Horizon
 
-This small Windows app sends TikTok LIVE comments to the in-game chat in
-[Horizon](https://github.com/horizon-rust/horizon). Horizon is a Rust
-reimplementation of Minecraft: Java Edition.
-
-The bridge adds each viewer's TikTok username to their comment and shows it as a
-system message in Horizon. This is a companion Python app. It is not Horizon,
-and it is not a Minecraft Java mod or a Horizon WASM mod. TikTok gifts trigger
-an on-screen username and gift alert plus a firework near the local player.
+This lightweight Windows companion app connects a TikTok LIVE stream to
+[Horizon](https://github.com/horizon-rust/horizon), the Rust reimplementation of
+Minecraft: Java Edition. It forwards viewer comments to Horizon's in-game chat
+with the TikTok username. Gifts trigger an on-screen username and gift alert,
+plus a firework near the local player. This is an external Python app, not a
+Minecraft Java mod or a Horizon WASM mod.
 
 ## What you need
 
