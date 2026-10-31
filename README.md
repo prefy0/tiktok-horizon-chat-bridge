@@ -58,7 +58,21 @@ window to stop it.
   was entered correctly. TikTokLive is an unofficial library, and TikTok may
   change how its LIVE chat works.
 
+## Third-party dependencies and licenses
+
+This repository's own code is licensed under MIT (see [LICENSE](LICENSE)).
+It uses [TikTokLive](https://github.com/isaackogan/TikTokLive) version 7.0.1,
+which is installed separately by pip and is not bundled in this repository.
+TikTokLive has its own Modified AGPL-3.0 license and additional terms; see its
+[license file](https://github.com/isaackogan/TikTokLive/blob/master/LICENSE).
+Those terms include an exception for integration into client applications,
+stream bots, and similar tools, as well as restrictions on certain hosted
+services. Review the upstream license if you modify how this project is
+distributed or operated.
+
+Horizon is a separate project and is not bundled here. See the
+[Horizon license](https://github.com/horizon-rust/horizon/blob/main/LICENSE).
+
 ## License
 
 This project is licensed under the MIT License. See [LICENSE](LICENSE).
-
