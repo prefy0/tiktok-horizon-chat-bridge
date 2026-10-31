@@ -1,8 +1,17 @@
 # TikTok LIVE → Horizon Chat Bridge
 
-Лёгкий Python-мост: читает комментарии публичного TikTok LIVE и показывает их
-в чате Horizon как системные сообщения. TikTok-ник автора включается в текст;
-имя игрового аккаунта не отображается как автор.
+This is a companion integration for [Horizon](https://github.com/horizon-rust/horizon),
+the open-source Rust reimplementation of Minecraft: Java Edition. It forwards
+TikTok LIVE comments to the in-game Horizon chat, including each viewer's TikTok
+handle, so stream viewers can take part in a Horizon session. This project is a
+Python bridge, not a standalone game, a Java Edition mod, or a Horizon WASM mod.
+
+Это внешний Python-мост для [Horizon](https://github.com/horizon-rust/horizon) —
+Rust-переосмысления Minecraft: Java Edition. Он передаёт комментарии TikTok LIVE
+в игровой чат Horizon вместе с TikTok-ником зрителя, чтобы аудитория стрима могла
+участвовать в игре. Это интеграция для Horizon, а не отдельная игра или мод.
+
+Сообщения появляются в чате как системные:
 
 ```text
 @viewer_name: привет, чат!
