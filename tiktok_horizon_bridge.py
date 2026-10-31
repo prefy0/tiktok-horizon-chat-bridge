@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from TikTokLive import TikTokLiveClient
-from TikTokLive.events import CommentEvent
+from TikTokLive.events import CommentEvent, GiftEvent
 
 
 # Укажите имя аккаунта, который ведёт эфир, или ссылку на его LIVE.
@@ -27,6 +27,7 @@ MAX_NICK_LENGTH = 32
 MAX_COMMENT_LENGTH = 240
 QUEUE_LIMIT = 100
 RECONNECT_DELAY_SECONDS = 10
+FIREWORK_LIFETIME_TICKS = 20
 
 logging.basicConfig(
     level=logging.INFO,
@@ -92,28 +93,101 @@ def send_to_horizon(nickname: str, comment: str) -> None:
         raise RuntimeError(details or f"horizon-ctl завершился с кодом {result.returncode}")
 
 
-async def forward_comments(queue: asyncio.Queue[tuple[str, str] | None]) -> None:
-    """Отправляет сообщения по одному, сохраняя порядок комментариев."""
+def run_horizon_command(command: str) -> None:
+    """Выполняет одну игровую команду через horizon-ctl."""
+    result = subprocess.run(
+        [HORIZON_CTL_PATH, "command", command],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=8,
+    )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip()
+        raise RuntimeError(details or f"Команда Horizon завершилась с кодом {result.returncode}")
+
+
+def player_position() -> tuple[float, float, float]:
+    """Читает позицию управляемого игрока, чтобы запускать фейерверк рядом с ним."""
+    result = subprocess.run(
+        [HORIZON_CTL_PATH, "state"],
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=5,
+    )
+    if result.returncode != 0:
+        details = (result.stderr or result.stdout).strip()
+        raise RuntimeError(details or "Не удалось получить состояние Horizon")
+
+    state = json.loads(result.stdout)
+    position = state["player"]["position"]
+    return float(position[0]), float(position[1]), float(position[2])
+
+
+def show_gift_in_horizon(nickname: str, gift_name: str, quantity: int) -> None:
+    """Показывает подарок на экране и запускает цветной фейерверк у игрока."""
+    gift_name = clean_text(gift_name, 48) or "подарок"
+    quantity = max(1, quantity)
+    title = json.dumps(
+        {"text": f"@{nickname}", "color": "light_purple", "bold": True},
+        ensure_ascii=False,
+    )
+    subtitle = json.dumps(
+        {"text": f"подарил(а): {gift_name} x{quantity}", "color": "gold"},
+        ensure_ascii=False,
+    )
+
+    # Текст виден несколько секунд поверх игрового экрана.
+    run_horizon_command("title @a times 5 50 10")
+    run_horizon_command(f"title @a title {title}")
+    run_horizon_command(f"title @a subtitle {subtitle}")
+
+    # Компонент фейерверка задаёт цветной взрыв без выдачи предмета игроку.
+    x, y, z = player_position()
+    firework = (
+        'summon minecraft:firework_rocket '
+        f'{x:.3f} {y + 1.0:.3f} {z:.3f} '
+        '{LifeTime:' + str(FIREWORK_LIFETIME_TICKS) + ',FireworksItem:'
+        '{id:"minecraft:firework_rocket",count:1,components:'
+        '{"minecraft:fireworks":{flight_duration:1,explosions:'
+        '[{shape:"large_ball",colors:[I;16711935],has_trail:true}]}}}}'
+    )
+    run_horizon_command(firework)
+
+
+async def forward_events(
+    queue: asyncio.Queue[tuple[str, str, str, int] | None],
+) -> None:
+    """Последовательно отправляет комментарии и обрабатывает подарки."""
     while True:
         item = await queue.get()
         try:
             if item is None:
                 return
-            nickname, comment = item
+            event_type, nickname, text, quantity = item
             try:
-                await asyncio.to_thread(send_to_horizon, nickname, comment)
-                logging.info("Отправлено в Horizon: @%s: %s", nickname, comment)
+                if event_type == "comment":
+                    await asyncio.to_thread(send_to_horizon, nickname, text)
+                    logging.info("Отправлено в Horizon: @%s: %s", nickname, text)
+                elif event_type == "gift":
+                    await asyncio.to_thread(show_gift_in_horizon, nickname, text, quantity)
+                    logging.info("Подарок в Horizon: @%s подарил(а) %s x%s", nickname, text, quantity)
             except subprocess.TimeoutExpired:
-                logging.warning("horizon-ctl не ответил за 8 секунд; сообщение пропущено.")
-            except (OSError, RuntimeError) as error:
-                logging.warning("Не удалось отправить сообщение в Horizon: %s", error)
+                logging.warning("horizon-ctl не ответил вовремя; событие пропущено.")
+            except (OSError, RuntimeError, ValueError, KeyError, IndexError, TypeError) as error:
+                logging.warning("Не удалось обработать событие в Horizon: %s", error)
         finally:
             queue.task_done()
 
 
 async def run_bridge() -> None:
-    queue: asyncio.Queue[tuple[str, str] | None] = asyncio.Queue(maxsize=QUEUE_LIMIT)
-    worker = asyncio.create_task(forward_comments(queue))
+    queue: asyncio.Queue[tuple[str, str, str, int] | None] = asyncio.Queue(maxsize=QUEUE_LIMIT)
+    worker = asyncio.create_task(forward_events(queue))
 
     try:
         while True:
@@ -129,9 +203,32 @@ async def run_bridge() -> None:
                     return
                 logging.info("Комментарий получен из TikTok: @%s: %s", nickname, comment)
                 try:
-                    queue.put_nowait((nickname, comment))
+                    queue.put_nowait(("comment", nickname, comment, 1))
                 except asyncio.QueueFull:
                     logging.warning("Очередь переполнена; новый комментарий пропущен.")
+
+            @client.on(GiftEvent)
+            async def on_gift(event: GiftEvent) -> None:
+                user = getattr(event, "user", None)
+                gift = getattr(event, "gift", None)
+                nickname = clean_text(getattr(user, "unique_id", None), MAX_NICK_LENGTH)
+                gift_name = clean_text(getattr(gift, "name", None), 48)
+                if not nickname or not gift_name:
+                    return
+
+                # Серийные подарки приходят несколькими событиями; реагируем только на финальное.
+                if getattr(event, "streaking", False):
+                    return
+                try:
+                    quantity = max(1, int(getattr(event, "repeat_count", 1) or 1))
+                except (TypeError, ValueError):
+                    quantity = 1
+
+                logging.info("Подарок из TikTok: @%s — %s x%s", nickname, gift_name, quantity)
+                try:
+                    queue.put_nowait(("gift", nickname, gift_name, quantity))
+                except asyncio.QueueFull:
+                    logging.warning("Очередь переполнена; подарок пропущен.")
 
             try:
                 logging.info("Подключаюсь к LIVE автора %s", TIKTOK_CREATOR)
@@ -201,6 +298,14 @@ def main() -> None:
             "Settings → Game arguments, добавь --control, перезапусти игру, снова "
             "открой мир для сети и запусти мост."
         )
+
+    # Убираем ответы игровых команд из чата; комментарии зрителей через tellraw останутся видны.
+    try:
+        run_horizon_command("gamerule send_command_feedback false")
+        logging.info("Служебные ответы игровых команд отключены для этого мира.")
+    except (OSError, RuntimeError, subprocess.TimeoutExpired) as error:
+        logging.warning("Не удалось отключить ответы команд в игровом чате: %s", error)
+
     lock_handle = acquire_single_instance_lock()
     try:
         asyncio.run(run_bridge())
