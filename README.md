@@ -6,7 +6,8 @@ reimplementation of Minecraft: Java Edition.
 
 The bridge adds each viewer's TikTok username to their comment and shows it as a
 system message in Horizon. This is a companion Python app. It is not Horizon,
-and it is not a Minecraft Java mod or a Horizon WASM mod.
+and it is not a Minecraft Java mod or a Horizon WASM mod. TikTok gifts trigger
+an on-screen username and gift alert plus a firework near the local player.
 
 ## What you need
 
@@ -44,6 +45,12 @@ window to stop it.
   ```
 
 - Comments are sent in order.
+- Gifts display the TikTok username and gift name on screen and launch a firework
+  near the local player. Gift streaks trigger once, when the streak is complete.
+- At startup, the bridge disables command feedback for the world so title and
+  firework command confirmations do not fill the chat. Viewer comments and gift
+  alerts remain visible. To restore command feedback later, run
+  `/gamerule send_command_feedback true` in the world.
 - The bridge reconnects if TikTok disconnects.
 - Only one bridge window can run at a time.
 - The message text is shortened and cleaned before it is sent to the game.
